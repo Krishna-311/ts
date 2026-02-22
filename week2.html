@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeScript Dashboard System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+            margin: 0;
+            transition: background 0.5s ease;
+        }
+
+        .auth-mode {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .dashboard-container {
+            display: none;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-message {
+            font-size: 0.8rem;
+            color: #ef4444;
+            margin-top: 0.25rem;
+            height: 1rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .error-active {
+            opacity: 1;
+        }
+
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #ffffff;
+            border-radius: 50%;
+            width: 1.2rem;
+            height: 1.2rem;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .chart-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+
+        .chart-progress {
+            height: 100%;
+            background: #4f46e5;
+            transition: width 1s ease-in-out;
+        }
+    </style>
+</head>
+<body id="appBody" class="auth-mode">
+    <main id="loginView" class="login-card p-8 md:p-10">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Login Page</h1>
+        </header>
+
+        <form id="loginForm" novalidate>
+            <div class="input-group">
+                <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                <input type="email" id="email" name="email" placeholder="user@gmail.com" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                <div id="emailError" class="error-message">Please enter a valid email address.</div>
+            </div>
+
+            <div class="input-group">
+                <label for="password" class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                <div id="passwordError" class="error-message">Minimum 8 characters required.</div>
+            </div>
+
+            <div class="input-group">
+                <label for="role" class="block text-sm font-semibold text-gray-700 mb-1">Select Role</label>
+                <select id="role" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                    <option value="USER">Standard User</option>
+                    <option value="ADMIN">Administrator</option>
+                    <option value="MANAGER">Manager</option>
+                </select>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg mt-4 flex items-center justify-center">
+                <span id="btnText">Launch Dashboard</span>
+            </button>
+        </form>
+    </main>
+    <div id="dashboardView" class="dashboard-container">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Welcome, <span id="displayUser" class="text-indigo-600">User</span>!</h1>
+                <p id="roleBadge" class="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-1 rounded mt-1 inline-block"></p>
+            </div>
+            <button onclick="logout()" class="text-sm font-semibold text-gray-500 hover:text-red-600 transition-colors">Sign Out</button>
+        </header>
+    </div>
+
+    <script type="text/javascript">
+        var UserRole;
+        (function (UserRole) {
+            UserRole["ADMIN"] = "ADMIN";
+            UserRole["USER"] = "USER";
+            UserRole["MANAGER"] = "MANAGER";
+        })(UserRole || (UserRole = {}));
+
+        const loginView = document.getElementById('loginView');
+        const dashboardView = document.getElementById('dashboardView');
+        const appBody = document.getElementById('appBody');
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const roleSelect = document.getElementById('role');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+
+       
+        const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.toLowerCase());
+        const validatePassword = (pass) => pass.length >= 8;
+
+        const setFieldError = (id, isValid) => {
+            document.getElementById(id).classList.toggle('error-active', !isValid);
+        };
+      
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = emailInput.value;
+            const pass = passwordInput.value;
+            const role = roleSelect.value;
+
+            const isEmailValid = validateEmail(email);
+            const isPassValid = validatePassword(pass);
+
+            setFieldError('emailError', isEmailValid);
+            setFieldError('passwordError', isPassValid);
+
+            if (isEmailValid && isPassValid) {
+               
+                submitBtn.disabled = true;
+                btnText.innerHTML = '<span class="loading-spinner"></span> Loading...';
+                await new Promise(r => setTimeout(r, 1200));                
+                switchToDashboard(email, role);
+            }
+        });
+
+        function switchToDashboard(userEmail, role) {
+            loginView.style.display = 'none';
+            dashboardView.style.display = 'block';
+            appBody.classList.remove('auth-mode');
+            
+            document.getElementById('displayUser').innerText = userEmail.split('@')[0];
+            document.getElementById('roleBadge').innerText = role;
+            
+            setTimeout(() => {
+                document.querySelectorAll('.chart-progress').forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => bar.style.width = width, 100);
+                });
+            }, 300);
+        }
+
+        window.logout = () => {
+            location.reload(); 
+        };
+
+        emailInput.addEventListener('input', () => emailInput.value && setFieldError('emailError', validateEmail(emailInput.value)));
+        passwordInput.addEventListener('input', () => passwordInput.value && setFieldError('passwordError', validatePassword(passwordInput.value)));
+    </script>
+</body>
+</html>
